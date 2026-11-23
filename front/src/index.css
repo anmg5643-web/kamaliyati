@@ -1,0 +1,26 @@
+@import "tailwindcss";
+@import "@heroui/styles";
+
+/* ألوان المتجر (من الشعار + ألوان فاتحة). عدّلها من هنا فقط */
+@theme {
+  --font-sans: "Tajawal", system-ui, sans-serif;
+  --color-brand: #e3171b;
+  --color-brand-strong: #b80f13;
+  --color-ink: #0b0b0c;
+  --color-paper: #f6f5f2;
+  --color-tint: #fdeeee;
+}
+
+/* ربط ألوان HeroUI بلون الشعار */
+:root,
+[data-theme="light"] {
+  --accent: #e3171b;
+  --accent-foreground: #ffffff;
+  --focus: #e3171b;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
