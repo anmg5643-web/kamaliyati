@@ -1,15 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button } from '@heroui/react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Search, ShoppingBag, Phone } from 'lucide-react'
 import { contact } from './data/contact'
 import { WhatsAppIcon } from './components/SocialIcons'
 import { categories } from './data/products'
+import { getCartId, getLocalCart } from './lib/cart'
 import AdminPage from './AdminPage'
 import ProductPage from './ProductPage'
 import CartPage from './CartPage'
 import ProductCard from './components/ProductCard'
-import CartPanel from './components/CartPanel'
 import Intro from './components/Intro'
 
 const reduced = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -17,26 +17,6 @@ const group = { hide: {}, show: { transition: { staggerChildren: 0.07, delayChil
 const item = {
   hide: { opacity: 0, y: 24 },
   show: { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] } },
-}
-
-function getCartId() {
-  try {
-    let id = localStorage.getItem('kamaliyati-cart-id')
-    if (!id) {
-      id = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`
-      localStorage.setItem('kamaliyati-cart-id', id)
-    }
-    return id
-  } catch {
-    return `${Date.now()}-${Math.random().toString(36).slice(2)}`
-  }
-}
-
-function getLocalCart() {
-  try {
-    const saved = JSON.parse(localStorage.getItem('kamaliyati-cart') || '[]')
-    return Array.isArray(saved) ? saved : []
-  } catch { return [] }
 }
 
 function Storefront() {
@@ -48,66 +28,49 @@ function Storefront() {
   const [catalogError, setCatalogError] = useState('')
   const [cartId] = useState(getCartId)
   const [cart, setCart] = useState(getLocalCart)
-  const localCartRef = useRef(cart)
   const [cartReady, setCartReady] = useState(false)
-  const [cartSyncError, setCartSyncError] = useState('')
   const [favs, setFavs] = useState(new Set())
-  const [open, setOpen] = useState(false)
   const [toast, setToast] = useState(null)
   const done = useCallback(() => setIntro(false), [])
 
+  // تحميل السلة من الخادم (ونقل السلة المحلية له لو كان الخادم فاضي)
   useEffect(() => {
     let active = true
     const endpoint = `/api/cart?cartId=${encodeURIComponent(cartId)}`
+    const local = getLocalCart()
     async function loadCart() {
       try {
         const response = await fetch(endpoint)
         const data = await response.json().catch(() => null)
-        if (!data) throw new Error('تعذر الوصول إلى الباك. تأكد أن الخادم يعمل.')
-        if (!response.ok) throw new Error(data.error || 'تعذر تحميل السلة.')
+        if (!data || !response.ok) throw new Error('cart load failed')
         let serverItems = data.cart?.items || []
-        if (!serverItems.length && localCartRef.current.length) {
+        if (!serverItems.length && local.length) {
           const save = await fetch(endpoint, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ items: localCartRef.current.map(({ id, qty }) => ({ id, qty: Math.min(20, Math.max(1, Math.floor(Number(qty) || 1))) })) }),
+            body: JSON.stringify({ items: local.map(({ id, qty }) => ({ id, qty: Math.min(20, Math.max(1, Math.floor(Number(qty) || 1))) })) }),
           })
           const saved = await save.json().catch(() => null)
-          if (!saved) throw new Error('تعذر الوصول إلى الباك لحفظ السلة.')
-          if (!save.ok) throw new Error(saved.error || 'تعذر نقل السلة إلى الخادم.')
-          serverItems = saved.cart?.items || []
+          if (save.ok && saved) serverItems = saved.cart?.items || []
         }
-        if (active) {
-          setCart(serverItems)
-          setCartSyncError('')
-        }
-      } catch {
-        if (active) setCartSyncError('تعذر الاتصال بالباك؛ السلة محفوظة مؤقتاً على هذا الجهاز.')
-      } finally {
-        if (active) setCartReady(true)
-      }
+        if (active) setCart(serverItems)
+      } catch { /* نبقى على السلة المحلية */ }
+      finally { if (active) setCartReady(true) }
     }
     loadCart()
     return () => { active = false }
   }, [cartId])
 
+  // حفظ السلة (محلياً وعلى الخادم) بعد كل تغيير
   useEffect(() => {
     if (!cartReady) return undefined
     try { localStorage.setItem('kamaliyati-cart', JSON.stringify(cart)) } catch {}
     const controller = new AbortController()
-    const timeout = setTimeout(async () => {
-      try {
-        const response = await fetch(`/api/cart?cartId=${encodeURIComponent(cartId)}`, {
-          method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ items: cart.map(({ id, qty }) => ({ id, qty })) }),
-          signal: controller.signal,
-        })
-        const data = await response.json().catch(() => null)
-        if (!data) throw new Error('تعذر الوصول إلى الباك لحفظ السلة.')
-        if (!response.ok) throw new Error(data.error || 'تعذر حفظ السلة.')
-        setCartSyncError('')
-      } catch (error) {
-        if (error.name !== 'AbortError') setCartSyncError('تعذر مزامنة السلة مع الخادم؛ جرّب مرة ثانية.')
-      }
+    const timeout = setTimeout(() => {
+      fetch(`/api/cart?cartId=${encodeURIComponent(cartId)}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: cart.map(({ id, qty }) => ({ id, qty })) }),
+        signal: controller.signal,
+      }).catch(() => {})
     }, 250)
     return () => { clearTimeout(timeout); controller.abort() }
   }, [cart, cartId, cartReady])
@@ -133,7 +96,7 @@ function Storefront() {
 
   useEffect(() => {
     if (!toast) return undefined
-    const t = setTimeout(() => setToast(null), 1800)
+    const t = setTimeout(() => setToast(null), 3000)
     return () => clearTimeout(t)
   }, [toast])
 
@@ -144,11 +107,24 @@ function Storefront() {
   const count = cart.reduce((s, i) => s + i.qty, 0)
   const add = (p) => {
     setCart((c) => (c.some((i) => i.id === p.id) ? c.map((i) => (i.id === p.id ? { ...i, qty: Math.min(20, i.qty + 1) } : i)) : [...c, { ...p, qty: 1 }]))
-    setToast({ text: `تمت إضافة "${p.name}" للسلة`, id: Date.now() })
+    setToast({ text: p.name, id: Date.now() })
   }
-  const qty = (id, d) => setCart((c) => c.map((i) => (i.id === id ? { ...i, qty: Math.min(20, Math.max(1, i.qty + d)) } : i)))
-  const remove = (id) => setCart((c) => c.filter((i) => i.id !== id))
   const fav = (id) => setFavs((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
+
+  // نحفظ السلة على الخادم أولاً ثم نفتح صفحة السلة، عشان ما يضيع آخر منتج
+  const goCart = async (event) => {
+    event.preventDefault()
+    if (cartReady) {
+      try {
+        await fetch(`/api/cart?cartId=${encodeURIComponent(cartId)}`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: cart.map(({ id, qty }) => ({ id, qty })) }),
+          signal: AbortSignal.timeout(2500),
+        })
+      } catch { /* نكمل للصفحة حتى لو فشل */ }
+    }
+    window.location.href = '/cart'
+  }
 
   return (
     <>
@@ -157,15 +133,11 @@ function Storefront() {
       <motion.div variants={group} initial="hide" animate={intro ? 'hide' : 'show'} className="min-h-screen">
         <motion.header variants={item} className="sticky top-0 z-30 border-b border-black/5 bg-paper/80 backdrop-blur-xl">
           <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-            <a href="#top" className="text-xl font-extrabold tracking-tight">
-              كمالياتي
+            <a href="#top" className="text-xl font-extrabold tracking-tight">كمالياتي</a>
+            <a href="/cart" onClick={goCart} aria-label={`السلة، ${count} منتج`} className="relative grid size-11 place-items-center rounded-full border border-black/10 bg-white">
+              <ShoppingBag className="size-5" />
+              {count > 0 && <span className="absolute -end-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-brand px-1 text-xs font-bold text-white">{count}</span>}
             </a>
-            <div className="flex items-center gap-2">
-              <a href="/cart" className="rounded-full px-3 py-2 text-sm font-bold">السلة ({count})</a>
-              <Button isIconOnly variant="outline" aria-label="فتح السلة" onPress={() => setOpen(true)} className="relative rounded-full">
-                <ShoppingBag className="size-5" />
-              </Button>
-            </div>
           </div>
         </motion.header>
 
@@ -211,9 +183,12 @@ function Storefront() {
         </motion.footer>
       </motion.div>
 
-      {toast && <div role="status" className="fixed bottom-5 left-1/2 z-40 -translate-x-1/2 rounded-full bg-ink px-5 py-3 text-sm font-bold text-white shadow-xl">{toast.text}</div>}
-
-      <CartPanel open={open} items={cart} cartId={cartId} syncError={cartSyncError} onClose={() => setOpen(false)} onQty={qty} onRemove={remove} onOrderPlaced={() => setCart([])} />
+      {toast && (
+        <div role="status" className="fixed inset-x-4 bottom-4 z-40 mx-auto flex max-w-md items-center justify-between gap-3 rounded-2xl bg-ink px-4 py-3 text-sm text-white shadow-xl">
+          <span className="min-w-0 truncate">تمت إضافة «{toast.text}»</span>
+          <a href="/cart" onClick={goCart} className="shrink-0 font-bold underline underline-offset-4">عرض السلة</a>
+        </div>
+      )}
     </>
   )
 }

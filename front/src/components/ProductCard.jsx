@@ -1,6 +1,6 @@
 import { Button } from '@heroui/react'
 import { motion } from 'motion/react'
-import { Heart, Plus, Star, Disc3, Droplets, Wind, BatteryCharging, Sparkles } from 'lucide-react'
+import { Heart, Plus, Disc3, Droplets, Wind, BatteryCharging, Sparkles } from 'lucide-react'
 import { formatPrice } from '../data/products'
 
 const icons = { brakes: Disc3, oils: Droplets, filters: Wind, electrics: BatteryCharging, accessories: Sparkles }
@@ -11,9 +11,8 @@ export const rise = {
 }
 
 export default function ProductCard({ product, isFav, onFav, onAdd }) {
-  const { name, brand, price, oldPrice, rating, reviews, inStock, badge, image, category } = product
+  const { name, brand, price, oldPrice, inStock, badge, image, category } = product
   const Icon = icons[category] ?? Sparkles
-  const discount = oldPrice ? Math.round((1 - price / oldPrice) * 100) : 0
 
   return (
     <motion.article
@@ -31,17 +30,13 @@ export default function ProductCard({ product, isFav, onFav, onAdd }) {
           )}
         </a>
         {badge && <span className="absolute start-3 top-3 rounded-full bg-brand px-3 py-1 text-xs font-bold text-white">{badge}</span>}
-        {discount > 0 && <span className="absolute end-3 top-3 rounded-full bg-white px-2 py-1 text-xs font-bold text-brand">-{discount}%</span>}
         <Button isIconOnly variant="outline" aria-label={isFav ? `إزالة ${name} من المفضلة` : `أضف ${name} للمفضلة`} onPress={() => onFav(product.id)} className="absolute bottom-3 end-3 rounded-full bg-white/90">
           <Heart className={`size-4 ${isFav ? 'fill-brand text-brand' : ''}`} />
         </Button>
       </div>
 
       <div className="flex flex-1 flex-col gap-1 p-4">
-        <div className="flex items-center justify-between text-sm text-neutral-500">
-          <span>{brand}</span>
-          {rating && <span className="flex items-center gap-1"><Star className="size-3.5 fill-amber-400 text-amber-400" />{rating}{reviews ? ` (${reviews})` : ''}</span>}
-        </div>
+        {brand && <span className="text-sm text-neutral-500">{brand}</span>}
         <h3 className="font-bold leading-snug"><a href={`/product/${product.id}`} className="hover:text-brand">{name}</a></h3>
         <div className="mt-auto flex items-end justify-between pt-3">
           <div>
