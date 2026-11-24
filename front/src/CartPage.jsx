@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowRight, Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react'
-import { Button, Input } from '@heroui/react'
+import { Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react'
+import { Button } from '@heroui/react'
 import { formatPrice } from './data/products'
 import { getCartId, setLocalCart } from './lib/cart'
+
+const field = 'mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2.5 font-normal outline-none focus:border-brand'
 
 export default function CartPage() {
   const [cartId] = useState(getCartId)
@@ -92,10 +94,18 @@ export default function CartPage() {
         <form onSubmit={submit} className="h-fit rounded-3xl bg-white p-5 shadow-sm">
           <div className="mb-4 flex justify-between text-lg font-black"><span>الإجمالي</span><span>{formatPrice(total)}</span></div>
           <div className="grid gap-3">
-            <Input label="الاسم" value={form.name} onValueChange={(name) => setForm({ ...form, name })} isRequired maxLength={100} />
-            <Input label="رقم الهاتف" type="tel" value={form.phone} onValueChange={(phone) => setForm({ ...form, phone })} isRequired maxLength={30} />
-            <Input label="المدينة / العنوان" value={form.address} onValueChange={(address) => setForm({ ...form, address })} isRequired maxLength={240} />
-            <label className="grid gap-1 text-sm font-medium">ملاحظات (اختياري)<textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} maxLength={500} rows={3} className="resize-y rounded-xl border border-neutral-300 px-3 py-2 font-normal" /></label>
+            <label className="grid text-sm font-bold">الاسم الكامل
+              <input required maxLength={100} autoComplete="name" placeholder="مثال: أحمد محمد" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={field} />
+            </label>
+            <label className="grid text-sm font-bold">رقم الهاتف (نتواصل معاك عليه لتأكيد الطلب)
+              <input required type="tel" inputMode="tel" dir="ltr" maxLength={30} autoComplete="tel" placeholder="09XXXXXXXX" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={`${field} text-start`} />
+            </label>
+            <label className="grid text-sm font-bold">المدينة / العنوان (لتوصيل الطلب)
+              <input required maxLength={240} autoComplete="street-address" placeholder="مثال: طرابلس - حي الأندلس" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className={field} />
+            </label>
+            <label className="grid gap-1 text-sm font-bold">ملاحظات (اختياري)
+              <textarea placeholder="مثال: نوع السيارة وسنة الصنع، أو وقت التوصيل المناسب" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} maxLength={500} rows={3} className="resize-y rounded-xl border border-neutral-300 px-3 py-2 font-normal outline-none focus:border-brand" />
+            </label>
           </div>
           <Button type="submit" isDisabled={sending || !items.length} className="mt-5 w-full rounded-full bg-ink py-6 font-bold text-white">{sending ? 'جارٍ تأكيد الطلب...' : 'تأكيد الطلب (الدفع عند الاستلام)'}</Button>
         </form>

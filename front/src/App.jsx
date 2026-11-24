@@ -53,6 +53,7 @@ function Storefront() {
   const [cartSyncError, setCartSyncError] = useState('')
   const [favs, setFavs] = useState(new Set())
   const [open, setOpen] = useState(false)
+  const [toast, setToast] = useState(null)
   const done = useCallback(() => setIntro(false), [])
 
   useEffect(() => {
@@ -130,6 +131,12 @@ function Storefront() {
     document.body.style.overflow = intro ? 'hidden' : ''
   }, [intro])
 
+  useEffect(() => {
+    if (!toast) return undefined
+    const t = setTimeout(() => setToast(null), 1800)
+    return () => clearTimeout(t)
+  }, [toast])
+
   const list = useMemo(
     () => catalog.filter((p) => (cat === 'all' || p.category === cat) && (p.name + p.brand).toLowerCase().includes(q.trim().toLowerCase())),
     [catalog, cat, q]
@@ -137,7 +144,7 @@ function Storefront() {
   const count = cart.reduce((s, i) => s + i.qty, 0)
   const add = (p) => {
     setCart((c) => (c.some((i) => i.id === p.id) ? c.map((i) => (i.id === p.id ? { ...i, qty: Math.min(20, i.qty + 1) } : i)) : [...c, { ...p, qty: 1 }]))
-    setOpen(true)
+    setToast({ text: `تمت إضافة "${p.name}" للسلة`, id: Date.now() })
   }
   const qty = (id, d) => setCart((c) => c.map((i) => (i.id === id ? { ...i, qty: Math.min(20, Math.max(1, i.qty + d)) } : i)))
   const remove = (id) => setCart((c) => c.filter((i) => i.id !== id))
@@ -203,6 +210,8 @@ function Storefront() {
           </div>
         </motion.footer>
       </motion.div>
+
+      {toast && <div role="status" className="fixed bottom-5 left-1/2 z-40 -translate-x-1/2 rounded-full bg-ink px-5 py-3 text-sm font-bold text-white shadow-xl">{toast.text}</div>}
 
       <CartPanel open={open} items={cart} cartId={cartId} syncError={cartSyncError} onClose={() => setOpen(false)} onQty={qty} onRemove={remove} onOrderPlaced={() => setCart([])} />
     </>
