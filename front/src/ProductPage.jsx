@@ -7,6 +7,7 @@ import { getCartId } from './lib/cart'
 export default function ProductPage() {
   const id = Number(window.location.pathname.split('/').filter(Boolean).at(-1))
   const [product, setProduct] = useState(null)
+  const [categories, setCategories] = useState([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [added, setAdded] = useState(false)
@@ -21,6 +22,15 @@ export default function ProductPage() {
     }).catch((e) => { if (active) setError(e.message) }).finally(() => { if (active) setLoading(false) })
     return () => { active = false }
   }, [id])
+
+  useEffect(() => {
+    let active = true
+    fetch('/api/products/categories').then(async (response) => {
+      const data = await response.json().catch(() => null)
+      if (response.ok && Array.isArray(data?.categories) && active) setCategories(data.categories)
+    }).catch(() => {})
+    return () => { active = false }
+  }, [])
 
   const addToCart = async () => {
     setError('')
@@ -45,6 +55,8 @@ export default function ProductPage() {
     } catch (e) { setError(e.message || 'تعذر الاتصال بالباك.') }
   }
 
+  const categoryLabel = product ? categories.find((c) => c.id === product.category)?.label : ''
+
   return <main className="min-h-screen bg-paper px-4 py-6 sm:px-8">
     <div className="mx-auto max-w-5xl">
       <header className="flex items-center justify-between rounded-2xl bg-white p-4"><a href="/" className="font-black">كمالياتي</a><a href="/cart" className="rounded-full border p-2" aria-label="السلة"><ShoppingBag className="size-5" /></a></header>
@@ -61,7 +73,7 @@ export default function ProductPage() {
           ) : <ShoppingBag className="size-24 text-brand/30" />}
         </div>
         <div className="flex flex-col justify-center">
-          <p className="text-sm text-neutral-500">{product.brand} · {product.category}</p>
+          <p className="text-sm text-neutral-500">{[product.brand, categoryLabel].filter(Boolean).join(' · ')}</p>
           <h1 className="mt-2 text-3xl font-black">{product.name}</h1>
           {product.description && <p className="mt-4 leading-7 text-neutral-600">{product.description}</p>}
           <p className="mt-6 text-3xl font-black">{formatPrice(product.price)}</p>

@@ -1,11 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
-const categories = [
-  ['brakes', 'الفرامل'], ['oils', 'الزيوت'], ['filters', 'الفلاتر'],
-  ['electrics', 'البطاريات والإضاءة'], ['accessories', 'الكماليات'],
-]
 const statuses = [['new', 'جديد'], ['confirmed', 'مؤكد'], ['shipped', 'تم الشحن'], ['delivered', 'تم التوصيل'], ['cancelled', 'ملغي']]
-const emptyProduct = { name: '', brand: '', category: 'accessories', price: '', oldPrice: '', rating: 0, reviews: 0, inStock: true, badge: '', image: '', description: '' }
+const emptyProduct = { name: '', brand: '', category: '', price: '', oldPrice: '', rating: 0, reviews: 0, inStock: true, badge: '', image: '', description: '' }
 
 async function api(path, token, options = {}) {
   const response = await fetch(`/api${path}`, {
@@ -52,6 +48,8 @@ export default function AdminPage() {
   const [tab, setTab] = useState('products')
   const [products, setProducts] = useState([])
   const [orders, setOrders] = useState([])
+  const [categories, setCategories] = useState([])
+  const [newCategory, setNewCategory] = useState('')
   const [form, setForm] = useState(null)
   const [login, setLogin] = useState({ username: '', password: '' })
   const [loading, setLoading] = useState(false)
@@ -63,6 +61,7 @@ export default function AdminPage() {
     setToken('')
     setProducts([])
     setOrders([])
+    setCategories([])
   }, [])
 
   const load = useCallback(async () => {
@@ -70,11 +69,12 @@ export default function AdminPage() {
     setLoading(true)
     setError('')
     try {
-      const [productData, orderData] = await Promise.all([
-        api('/products/admin/all', token), api('/orders', token),
+      const [productData, orderData, categoryData] = await Promise.all([
+        api('/products/admin/all', token), api('/orders', token), api('/products/categories', token),
       ])
       setProducts(productData.products || [])
       setOrders(orderData.orders || [])
+      setCategories(categoryData.categories || [])
     } catch (e) {
       if (e.status === 401) logout()
       else setError(e.message)
@@ -82,6 +82,12 @@ export default function AdminPage() {
   }, [token, logout])
 
   useEffect(() => { load() }, [load])
+
+  const productCounts = useMemo(() => {
+    const counts = {}
+    products.forEach((p) => { counts[p.category] = (counts[p.category] || 0) + 1 })
+    return counts
+  }, [products])
 
   const submitLogin = async (event) => {
     event.preventDefault()
@@ -124,6 +130,35 @@ export default function AdminPage() {
   const changeStatus = async (id, status) => {
     try { await api(`/orders/${id}/status`, token, { method: 'PUT', body: JSON.stringify({ status }) }); await load() }
     catch (e) { if (e.status === 401) logout(); else setError(e.message) }
+  }
+
+  const addCategory = async (event) => {
+    event.preventDefault()
+    setError('')
+    try {
+      await api('/products/categories', token, { method: 'POST', body: JSON.stringify({ label: newCategory }) })
+      setNewCategory('')
+      await load()
+    } catch (e) { if (e.status === 401) logout(); else setError(e.message) }
+  }
+
+  const renameCategory = async (category) => {
+    const label = window.prompt('الاسم الجديد للقسم', category.label)
+    if (!label || label.trim() === category.label) return
+    setError('')
+    try {
+      await api(`/products/categories/${category.id}`, token, { method: 'PUT', body: JSON.stringify({ label }) })
+      await load()
+    } catch (e) { if (e.status === 401) logout(); else setError(e.message) }
+  }
+
+  const removeCategory = async (category) => {
+    if (!window.confirm(`تبي تحذف قسم "${category.label}"؟`)) return
+    setError('')
+    try {
+      await api(`/products/categories/${category.id}`, token, { method: 'DELETE' })
+      await load()
+    } catch (e) { if (e.status === 401) logout(); else setError(e.message) }
   }
 
   const uploadImage = async (event) => {
@@ -172,10 +207,11 @@ export default function AdminPage() {
           <div><a href="/" className="text-xs text-neutral-500">المتجر</a><h1 className="text-2xl font-black">إدارة كمالياتي</h1></div>
           <div className="flex gap-2"><button onClick={load} className="rounded-full border px-4 py-2 text-sm">تحديث</button><button onClick={logout} className="rounded-full border px-4 py-2 text-sm">خروج</button></div>
         </header>
-        <nav className="mt-5 flex gap-2">
+        <nav className="mt-5 flex flex-wrap gap-2">
           <button onClick={() => setTab('products')} className={`rounded-full px-4 py-2 text-sm font-bold ${tab === 'products' ? 'bg-ink text-white' : 'bg-white'}`}>المنتجات ({products.length})</button>
+          <button onClick={() => setTab('categories')} className={`rounded-full px-4 py-2 text-sm font-bold ${tab === 'categories' ? 'bg-ink text-white' : 'bg-white'}`}>الأقسام ({categories.length})</button>
           <button onClick={() => setTab('orders')} className={`rounded-full px-4 py-2 text-sm font-bold ${tab === 'orders' ? 'bg-ink text-white' : 'bg-white'}`}>الطلبات ({orders.length})</button>
-          {tab === 'products' && <button onClick={() => setForm({ ...emptyProduct })} className="ms-auto rounded-full bg-brand px-4 py-2 text-sm font-bold text-white">+ إضافة منتج</button>}
+          {tab === 'products' && <button onClick={() => setForm({ ...emptyProduct, category: categories[0]?.id || '' })} className="ms-auto rounded-full bg-brand px-4 py-2 text-sm font-bold text-white">+ إضافة منتج</button>}
         </nav>
         {error && <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
         {loading ? <p className="py-12 text-center text-neutral-500">جارٍ تحميل البيانات...</p> : tab === 'products' ? (
@@ -186,6 +222,23 @@ export default function AdminPage() {
               <button onClick={() => setForm({ ...p })} className="rounded-full border px-3 py-2 text-sm">تعديل</button>
               <button onClick={() => removeProduct(p._id)} className="rounded-full border border-red-200 px-3 py-2 text-sm text-red-600">حذف</button>
             </article>) : <p className="p-10 text-center text-neutral-500">ما فيش منتجات.</p>}
+          </section>
+        ) : tab === 'categories' ? (
+          <section className="mt-4 rounded-2xl bg-white p-4 shadow-sm">
+            <form onSubmit={addCategory} className="flex gap-2">
+              <input required minLength={2} maxLength={40} value={newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder="اسم القسم الجديد، مثال: الإطارات" className="min-w-0 flex-1 rounded-xl border p-3" />
+              <button className="shrink-0 rounded-full bg-brand px-5 py-2 text-sm font-bold text-white">+ إضافة</button>
+            </form>
+            <ul className="mt-4 divide-y divide-neutral-100">
+              {categories.map((c) => <li key={c.id} className="flex flex-wrap items-center gap-3 py-3">
+                <span className="min-w-0 flex-1 font-bold">{c.label}</span>
+                <span className="text-xs text-neutral-500">{productCounts[c.id] || 0} منتج</span>
+                <button onClick={() => renameCategory(c)} className="rounded-full border px-3 py-2 text-sm">تعديل الاسم</button>
+                <button onClick={() => removeCategory(c)} className="rounded-full border border-red-200 px-3 py-2 text-sm text-red-600">حذف</button>
+              </li>)}
+              {!categories.length && <li className="py-8 text-center text-neutral-500">ما فيش أقسام.</li>}
+            </ul>
+            <p className="mt-4 text-xs text-neutral-500">لازم القسم يكون فاضي من المنتجات قبل الحذف، ولازم يبقى قسم واحد على الأقل.</p>
           </section>
         ) : (
           <section className="mt-4 grid gap-3">
@@ -206,7 +259,7 @@ export default function AdminPage() {
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <label className="text-sm">اسم المنتج<input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="mt-1 w-full rounded-xl border p-3" /></label>
             <label className="text-sm">الماركة<input value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} className="mt-1 w-full rounded-xl border p-3" /></label>
-            <label className="text-sm">القسم<select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="mt-1 w-full rounded-xl border p-3">{categories.map(([v, label]) => <option value={v} key={v}>{label}</option>)}</select></label>
+            <label className="text-sm">القسم<select required value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="mt-1 w-full rounded-xl border p-3">{categories.map((c) => <option value={c.id} key={c.id}>{c.label}</option>)}</select></label>
             <label className="text-sm">السعر<input required type="number" min="0" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="mt-1 w-full rounded-xl border p-3" /></label>
             <label className="text-sm">السعر قبل التخفيض<input type="number" min="0" step="0.01" value={form.oldPrice ?? ''} onChange={(e) => setForm({ ...form, oldPrice: e.target.value })} className="mt-1 w-full rounded-xl border p-3" /></label>
             <label className="text-sm">شارة<input value={form.badge} onChange={(e) => setForm({ ...form, badge: e.target.value })} className="mt-1 w-full rounded-xl border p-3" /></label>

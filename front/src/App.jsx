@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { Search, ShoppingBag, Phone } from 'lucide-react'
 import { contact } from './data/contact'
 import { WhatsAppIcon } from './components/SocialIcons'
-import { categories } from './data/products'
+import { categories as defaultCategories } from './data/products'
 import { getCartId, getLocalCart } from './lib/cart'
 import AdminPage from './AdminPage'
 import ProductPage from './ProductPage'
@@ -18,12 +18,14 @@ const item = {
   hide: { opacity: 0, y: 24 },
   show: { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] } },
 }
+const allCategory = { id: 'all', label: 'الكل' }
 
 function Storefront() {
   const [intro, setIntro] = useState(!reduced)
   const [cat, setCat] = useState('all')
   const [q, setQ] = useState('')
   const [catalog, setCatalog] = useState([])
+  const [categories, setCategories] = useState([allCategory])
   const [catalogLoading, setCatalogLoading] = useState(true)
   const [catalogError, setCatalogError] = useState('')
   const [cartId] = useState(getCartId)
@@ -87,6 +89,19 @@ function Storefront() {
       })
       .catch((error) => { if (active) setCatalogError(error.message || 'تعذر الاتصال بالباك.') })
       .finally(() => { if (active) setCatalogLoading(false) })
+    return () => { active = false }
+  }, [])
+
+  // الأقسام من الداتابيس (ولو فشل الطلب نستعمل الأقسام الافتراضية)
+  useEffect(() => {
+    let active = true
+    fetch('/api/products/categories')
+      .then(async (response) => {
+        const data = await response.json().catch(() => null)
+        if (!response.ok || !Array.isArray(data?.categories)) throw new Error('categories failed')
+        if (active) setCategories([allCategory, ...data.categories])
+      })
+      .catch(() => { if (active) setCategories(defaultCategories) })
     return () => { active = false }
   }, [])
 
