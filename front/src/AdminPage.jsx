@@ -21,6 +21,29 @@ async function api(path, token, options = {}) {
   return data
 }
 
+// ضغط الصورة في المتصفح قبل الرفع: أقصى بُعد 1200px وصيغة WebP
+async function compressImage(file, maxSide = 1200) {
+  const bitmap = await createImageBitmap(file)
+  const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height))
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.round(bitmap.width * scale)
+  canvas.height = Math.round(bitmap.height * scale)
+  const ctx = canvas.getContext('2d')
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+  const toBlob = (type, quality) => new Promise((resolve) => canvas.toBlob(resolve, type, quality))
+  let blob = await toBlob('image/webp', 0.82)
+  if (!blob || blob.type !== 'image/webp') {
+    // بعض المتصفحات القديمة ما تدعم WebP: نرجع لـ JPEG بخلفية بيضاء
+    ctx.globalCompositeOperation = 'destination-over'
+    ctx.fillStyle = '#fff'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    blob = await toBlob('image/jpeg', 0.85)
+  }
+  bitmap.close?.()
+  if (!blob) throw new Error('تعذر معالجة الصورة. جرّب صورة ثانية.')
+  return blob
+}
+
 export default function AdminPage() {
   const [token, setToken] = useState(() => {
     localStorage.removeItem('kamaliyati-admin-token')
@@ -107,19 +130,20 @@ export default function AdminPage() {
     const file = event.target.files?.[0]
     if (!file) return
     event.target.value = ''
-    if (file.size > 8 * 1024 * 1024) return setError('حجم الصورة لازم يكون أقل من 8 ميغابايت.')
+    if (file.size > 20 * 1024 * 1024) return setError('حجم الصورة لازم يكون أقل من 20 ميغابايت.')
     setUploading(true)
     setError('')
     try {
+      const compressed = await compressImage(file)
       const response = await fetch('/api/images', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/octet-stream' },
-        body: await file.arrayBuffer(),
+        body: await compressed.arrayBuffer(),
       })
       const data = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(data.error || 'تعذر رفع الصورة.')
+      if (!response.ok) throw Object.assign(new Error(data.error || 'تعذر رفع الصورة.'), { status: response.status })
       setForm((current) => ({ ...current, image: data.imageUrl }))
-    } catch (e) { if (e.status === 401) logout(); else setError(e.message) }
+    } catch (e) { if (e.status === 401) logout(); else setError(e.message || 'تعذر رفع الصورة.') }
     finally { setUploading(false) }
   }
 
@@ -187,9 +211,9 @@ export default function AdminPage() {
             <label className="text-sm">السعر قبل التخفيض<input type="number" min="0" step="0.01" value={form.oldPrice ?? ''} onChange={(e) => setForm({ ...form, oldPrice: e.target.value })} className="mt-1 w-full rounded-xl border p-3" /></label>
             <label className="text-sm">شارة<input value={form.badge} onChange={(e) => setForm({ ...form, badge: e.target.value })} className="mt-1 w-full rounded-xl border p-3" /></label>
             <label className="text-sm sm:col-span-2">رابط الصورة<input value={form.image} onChange={(e) => setForm({ ...form, image: e.target.value })} className="mt-1 w-full rounded-xl border p-3" /></label>
-            <label className="text-sm sm:col-span-2">أو ارفع صورة JPG أو PNG أو WebP (حتى 8 ميغابايت)
+            <label className="text-sm sm:col-span-2">أو ارفع صورة JPG أو PNG أو WebP (تنضغط تلقائياً قبل الرفع)
               <input type="file" accept="image/jpeg,image/png,image/webp" onChange={uploadImage} disabled={uploading} className="mt-1 block w-full rounded-xl border p-3 file:me-3 file:rounded-full file:border-0 file:bg-paper file:px-3 file:py-1" />
-              {uploading && <span className="mt-1 block text-xs text-neutral-500">جارٍ رفع الصورة...</span>}
+              {uploading && <span className="mt-1 block text-xs text-neutral-500">جارٍ ضغط الصورة ورفعها...</span>}
               {form.image && <img src={form.image} alt="معاينة صورة المنتج" className="mt-3 size-20 rounded-xl object-cover" />}
             </label>
             <label className="flex items-center gap-2 text-sm sm:col-span-2"><input type="checkbox" checked={Boolean(form.inStock)} onChange={(e) => setForm({ ...form, inStock: e.target.checked })} /> المنتج متوفر</label>
