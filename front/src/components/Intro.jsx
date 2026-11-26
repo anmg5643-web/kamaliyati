@@ -90,7 +90,7 @@ export default function Intro({ onDone }) {
             transition={{ duration: 0.5 }}
           >
             <h1 className="text-5xl font-extrabold">كمالياتي</h1>
-            <p className="text-neutral-400">قطع وكماليات السيارات</p>
+            <p className="text-neutral-400">كماليات السيارات</p>
           </motion.div>
         </div>
       </div>
