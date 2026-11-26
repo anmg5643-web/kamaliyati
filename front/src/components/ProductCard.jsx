@@ -21,10 +21,13 @@ export default function ProductCard({ product, isFav, onFav, onAdd }) {
       whileHover={{ y: -4 }}
       className="group flex flex-col overflow-hidden rounded-3xl bg-white shadow-[0_1px_2px_rgba(0,0,0,.04),0_8px_24px_-12px_rgba(0,0,0,.12)]"
     >
-      <div className={`relative aspect-square overflow-hidden ${image ? 'border-b border-neutral-100 bg-white' : 'bg-gradient-to-br from-tint to-white'}`}>
-        <a href={`/product/${product.id}`} aria-label={`تفاصيل ${name}`} className="absolute inset-0 flex items-center justify-center">
+      <div className={`relative aspect-square overflow-hidden ${image ? 'bg-neutral-100' : 'bg-gradient-to-br from-tint to-white'}`}>
+        <a href={`/product/${product.id}`} aria-label={`تفاصيل ${name}`} className="absolute inset-0 flex items-center justify-center overflow-hidden">
           {image ? (
-            <img src={image} alt={name} className="h-full w-full object-contain" loading="lazy" />
+            <>
+              <img src={image} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-125 object-cover opacity-80 blur-xl" loading="lazy" />
+              <img src={image} alt={name} className="relative h-full w-full object-contain" loading="lazy" />
+            </>
           ) : (
             <Icon className="size-20 text-brand/30 transition-transform duration-500 group-hover:rotate-12 group-hover:scale-110" strokeWidth={1.25} aria-hidden="true" />
           )}
