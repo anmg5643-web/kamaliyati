@@ -21,8 +21,8 @@ export default function ProductCard({ product, isFav, onFav, onAdd }) {
       whileHover={{ y: -4 }}
       className="group flex flex-col overflow-hidden rounded-3xl bg-white shadow-[0_1px_2px_rgba(0,0,0,.04),0_8px_24px_-12px_rgba(0,0,0,.12)]"
     >
-      <div className="relative grid aspect-square place-items-center bg-gradient-to-br from-tint to-white">
-        <a href={`/product/${product.id}`} aria-label={`تفاصيل ${name}`} className="grid size-full place-items-center">
+      <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-tint to-white">
+        <a href={`/product/${product.id}`} aria-label={`تفاصيل ${name}`} className="absolute inset-0 grid place-items-center">
           {image ? (
             <img src={image} alt={name} className="size-full object-cover" loading="lazy" />
           ) : (
@@ -37,7 +37,7 @@ export default function ProductCard({ product, isFav, onFav, onAdd }) {
 
       <div className="flex flex-1 flex-col gap-1 p-4">
         {brand && <span className="text-sm text-neutral-500">{brand}</span>}
-        <h3 className="font-bold leading-snug"><a href={`/product/${product.id}`} className="hover:text-brand">{name}</a></h3>
+        <h3 className="line-clamp-2 font-bold leading-snug"><a href={`/product/${product.id}`} className="hover:text-brand">{name}</a></h3>
         <div className="mt-auto flex items-end justify-between pt-3">
           <div>
             {oldPrice && <s className="block text-xs text-neutral-400">{formatPrice(oldPrice)}</s>}
