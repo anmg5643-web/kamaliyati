@@ -24,3 +24,10 @@ body {
   background: var(--color-paper);
   color: var(--color-ink);
 }
+
+/* يمنع الآيفون من تكبير الصفحة عند الضغط على أي حقل (يحصل لو الخط أقل من 16px) */
+input,
+select,
+textarea {
+  font-size: 16px;
+}

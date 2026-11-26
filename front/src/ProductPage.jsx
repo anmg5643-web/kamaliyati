@@ -52,7 +52,7 @@ export default function ProductPage() {
       {loading && <p className="py-16 text-center text-neutral-500">جارٍ تحميل المنتج...</p>}
       {!loading && error && <p className="mt-6 rounded-2xl bg-red-50 p-6 text-red-700">{error}</p>}
       {!loading && product && <section className="mt-6 grid gap-8 rounded-3xl bg-white p-5 shadow-sm md:grid-cols-2 md:p-8">
-        <div className="grid aspect-square place-items-center overflow-hidden rounded-2xl bg-paper">{product.image ? <img src={product.image} alt={product.name} className="size-full object-cover" /> : <ShoppingBag className="size-24 text-brand/30" />}</div>
+        <div className="grid aspect-square place-items-center overflow-hidden rounded-2xl bg-white ring-1 ring-neutral-100">{product.image ? <img src={product.image} alt={product.name} className="size-full object-contain" /> : <ShoppingBag className="size-24 text-brand/30" />}</div>
         <div className="flex flex-col justify-center">
           <p className="text-sm text-neutral-500">{product.brand} · {product.category}</p>
           <h1 className="mt-2 text-3xl font-black">{product.name}</h1>
